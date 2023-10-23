@@ -82,7 +82,7 @@ public class Land {
         return space;
     }
 
-    private ArrayList<Land> getDirectNeighbors() {
+    public ArrayList<Land> getDirectNeighbors() {
         ArrayList<Land> neighbors = new ArrayList<>();
         if (graph != null) {
             for (DefaultEdge edge : graph.edgesOf(this)) {
@@ -105,6 +105,11 @@ public class Land {
         return new HashMap<>();
     }
 
+    public Map<Land, LandType> getNeighbourLandTypeMap() {
+        // TODO
+        return new HashMap<>();
+    }
+
     public int getOccupiedResources() {
         // TODO
         return 0;
@@ -118,17 +123,21 @@ public class Land {
         // TODO
     }
 
-    public void remVic(String civName) {
+    public void remCiv(String civName) {
         // TODO
     }
 
-    public void remVic(Civilization civ) {
-        remVic(civ.getName());
+    public void remCiv(Civilization civ) {
+        remCiv(civ.getName());
     }
 
     public List<Record> passTime() {
         // TODO
         return new ArrayList<>();
+    }
+
+    public void cleanCivs() {
+        // TODO remove destroyed civs
     }
 
 

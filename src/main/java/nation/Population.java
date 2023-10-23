@@ -16,6 +16,13 @@ public class Population {
         this.people.put(race, amount);
     }
 
+    public Population(Population pop) {
+        this.people = new HashMap<>();
+        for (String name : pop.people.keySet()) {
+            this.people.put(name, pop.people.get(name));
+        }
+    }
+
     public int getSize() {
         int total = 0;
         for (Integer n : people.values()) {
@@ -51,12 +58,22 @@ public class Population {
 
     }
 
-    private void growBy(int n) {
+    public void growBy(int n) {
         int currentSize = this.getSize();
         Map<String, Double> percentages = this.getPercentages();
         for (String race : percentages.keySet()) {
             int newValue = this.people.get(race) + (int) Math.floor(percentages.get(race) * ((double) n * 100));
             this.people.put(race, newValue);
+        }
+    }
+
+    public void add(Population pop) {
+        for (String race : pop.people.keySet()) {
+            if (this.people.containsKey(race)) {
+                this.people.put(race, this.people.get(race) + pop.people.get(race));
+            } else {
+                this.people.put(race, pop.people.get(race));
+            }
         }
     }
 
