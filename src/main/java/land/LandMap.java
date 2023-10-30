@@ -1,6 +1,5 @@
 package land;
 
-import enums.LandType;
 import history.Record;
 import nation.Civilization;
 import org.jgrapht.Graph;
@@ -11,30 +10,47 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class LandMap {
-    private Graph<Land, DefaultEdge> graph;
+    private final Graph<Land, DefaultEdge> graph;
 
     public LandMap() {
         this.graph = new DefaultUndirectedGraph<>(DefaultEdge.class);
     }
 
     public Land getLand(String name) {
-        // TODO
+        for (Land land : graph.vertexSet()) {
+            if (land.getName().equals(name)) {
+                return land;
+            }
+        }
+        System.out.println("No land with name " + name + " found");
         return null;
     }
 
     public List<Civilization> getAllCivs() {
         List<Civilization> civs = new ArrayList<>();
-        // TODO
+        for (Land land : graph.vertexSet()) {
+            civs.addAll(land.getCivs());
+        }
         return civs;
     }
 
     public Civilization getCiv(String name) {
-        // TODO
+        for (Land land : graph.vertexSet()) {
+            for (Civilization civ : land.getCivs()) {
+                if (civ.getName().equals(name)) {
+                    return civ;
+                }
+            };
+        }
+        System.out.println("No civ with name " + name + " found");
         return null;
     }
 
     public List<Record> passTime() {
-        // TODO
-        return new ArrayList<>();
+        List<Record> records = new ArrayList<>();
+        for (Land land : graph.vertexSet()) {
+            records.addAll(land.passTime());
+        }
+        return records;
     }
 }

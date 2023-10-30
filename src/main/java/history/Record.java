@@ -19,6 +19,10 @@ public class Record {
         this.happenings = new ArrayList<>();
     }
 
+    public String getName() {
+        return eventName;
+    }
+
     public void setYear(int year) {
         this.eventYear = year;
     }
@@ -33,6 +37,14 @@ public class Record {
 
     @Override
     public String toString() {
-        return "Record :)";
+        String base = "Record:" + this.eventName + "\n";
+        if (happenings.size() == 0) {
+            base += "Nothing happened.";
+        } else {
+            for (String s : this.happenings) {
+                base += s;
+            }
+        }
+        return base;
     }
 }

@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Population {
-    private Map<String, Integer> people;
+    private final Map<String, Integer> people;
 
     public Population(String race) {
         this.people = new HashMap<>();
@@ -32,7 +32,7 @@ public class Population {
     }
 
     private Map<String, Double> getPercentages() {
-        double size = (double) this.getSize();
+        double size = this.getSize();
         Map<String, Double> percentages = new HashMap<>();
         for (String race : this.people.keySet()) {
             percentages.put(race, ((double) this.people.get(race)) / size);
@@ -88,6 +88,26 @@ public class Population {
         }
     }
 
+    public void growRaceBy(String race, int n) {
+        this.people.put(race, (this.people.get(race) + (n * 100)));
+    }
+
+    public void shrinkRaceBy(String race, int n) {
+        this.people.put(race, (this.people.get(race) + (n * 100)));
+        Map<String, Double> percentages = this.getPercentages();
+        if (percentages.get(race) < 0.01) {
+            this.people.remove(race);
+        }
+    }
+
+    public void setRaceTo(String race, int n) {
+        this.people.put(race, n * 100);
+        Map<String, Double> percentages = this.getPercentages();
+        if (percentages.get(race) < 0.01) {
+            this.people.remove(race);
+        }
+    }
+
     @Override
     public String toString() {
         if (this.people.size() == 0) {
@@ -101,4 +121,6 @@ public class Population {
         }
         return s.substring(0, s.length()-2);
     }
+
+
 }

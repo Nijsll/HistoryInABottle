@@ -1,9 +1,11 @@
 package nation;
 
+import Exceptions.ConstructEventException;
 import Exceptions.HandleEventException;
 import enums.*;
-import history.Event;
-import history.EventHandler;
+import events.Event;
+import events.EventBase;
+import events.EventHandler;
 import history.Record;
 import land.Land;
 import util.UtilFunctions;
@@ -52,6 +54,7 @@ public class Civilization {
         this.aggressive = aggressive;
         this.ancestors = new ArrayList<>();
         this.ancestors.add(name);
+        this.speciality = Specialty.None;
 
         this.active = true;
         this.initiative = 1;
@@ -94,12 +97,12 @@ public class Civilization {
     }
 
 //    CHANGE SELF
-
     public void destroy() {
         this.active = false;
+        removeFromOthers();
     }
 
-    public void split() {
+    public Civilization split() {
 //        Create 2 "halves"
         Civilization civ1 = new Civilization(this);
         civ1.population.setSize(population.getSize()/2);
@@ -117,7 +120,9 @@ public class Civilization {
         this.location.addCiv(civ2);
 
 //        End
+        changeName(new ArrayList<>(Arrays.asList(civ1.getName(), civ2.getName())));
         destroy();
+        return civ1;
     }
 
     public void migrate() {
@@ -133,7 +138,15 @@ public class Civilization {
     }
 
     public void shrink(int amount) {
-        this.size -= amount;
+        this.size = Math.max(0, this.size-amount);
+    }
+
+    private void changeName(List<String> newNames) {
+        this.location.propagateNameChange(this.name, newNames);
+    }
+
+    private void removeFromOthers() {
+        changeName(new ArrayList<>());
     }
 
 //    INTERACTION
@@ -219,42 +232,55 @@ public class Civilization {
         return comp;
     }
 
+    public void doNameChange(String priorName, List<String> newNames) {
+        if (this.allies.contains(priorName)) {
+            this.allies.remove(priorName);
+            this.allies.addAll(newNames);
+        }
+        if (this.enemies.contains(priorName)) {
+            this.enemies.remove(priorName);
+            this.enemies.addAll(newNames);
+        }
+    }
 
 //    EVENTS
 
     public Record passTime() {
-        Record r = new Record(this.name + " - " + (new Date()));
+        Record rec = new Record(this.name + " - " + (new Date()));
         if (!this.active) {
-            r.addEvent(this.name + " was destroyed.");
-            return r;
+            rec.addEvent(this.name + " was destroyed.");
+            return rec;
         }
 
 //        EVENT
         if (rollInitiative()) {
-            Event event = getEvent();
+            EventBase eventBase = EventHandler.getEvent(this);
+            Event event;
             try {
-                if (!event.isTwoCivs()) {
-                    r.addEvent(event.handleEvent1(this));
+                if (!eventBase.isTwoCivs()) {
+                    event = eventBase.build(this);
+                    rec.addEvent(event.handleEvent());
                 } else {
                     // Get Correct neighbour
-                    List<Civilization> neighbours = getNeighbours(event.getInteractionType());
+                    List<Civilization> neighbours = getNeighbours(eventBase.getInteractionType());
                     if (neighbours.size() == 0) {
                         System.out.println("Civ " + this.name + " failed to get second civ for event");
                     } else {
                         Civilization chosenCiv = neighbours.get(ThreadLocalRandom.current().nextInt(0, neighbours.size())+1);
-                        r.addEvent(event.handleEvent2(this, chosenCiv));
+                        event = eventBase.build(this, chosenCiv);
+                        rec.addEvent(event.handleEvent());
                     }
 
                 }
-            } catch (HandleEventException e) {
-                return event.getErrorRecord(e.getMessage());
+            } catch (ConstructEventException | HandleEventException e) {
+                return Event.getErrorRecord(e.getMessage());
             }
 
         }
 
         if (!this.active) {
-            r.addEvent(this.name + " was destroyed.");
-            return r;
+            rec.addEvent(this.name + " was destroyed.");
+            return rec;
         }
 
 //        Nomadic
@@ -269,30 +295,30 @@ public class Civilization {
 //        Population control
         if (this.size > this.population.getSize()) {
             this.population.growBy(1);
-            r.addEvent("Population grew.");
+            rec.addEvent("Population grew.");
         } else if (this.size < this.population.getSize()) {
             this.population.shrinkBy(1);
-            r.addEvent("Population shrunk.");
+            rec.addEvent("Population shrunk.");
             // Maybe make civ non-stable in this case
         }
 
 //        Destruction
         if (this.size == 0) {
             this.destroy();
-            r.addEvent(this.name + " was destroyed since their size dropped to 0.");
+            rec.addEvent(this.name + " was destroyed since their size dropped to 0.");
         } else if (this.population.getSize() == 0) {
             this.destroy();
-            r.addEvent(this.name + " was destroyed since their population dropped to 0.");
+            rec.addEvent(this.name + " was destroyed since their population dropped to 0.");
         }
 
-        return r;
+        return rec;
     }
 
     public boolean rollInitiative() {
         double n = Math.random();
         if (n < (1.0/this.initiative)) {
             // EVENT HAPPENS
-            this.initiative = 5;
+            this.initiative = Math.min(this.initiative + 4, 10);
             return true;
         } else {
             // EVENT DOES NOT HAPPEN
@@ -300,14 +326,6 @@ public class Civilization {
             return false;
         }
 
-    }
-
-    /*
-        Gets and builds random event from possible events
-     */
-    private Event getEvent() {
-        List<Event> events = EventHandler.getEvents(this);
-        return events.get(ThreadLocalRandom.current().nextInt(0, events.size()+1)).build();
     }
 
     private Record getNullEvent() {
@@ -331,5 +349,116 @@ public class Civilization {
         return UtilFunctions.getRandomFromSet(possible);
     }
 
+    public int getResourceUse() {
+        int usage = this.size;
+        LandType type = this.location.getType();
+        for (LandType land : this.affinity) {
+            if (land.equals(type)) {
+                usage--;
+            }
+        }
+        return Math.max(1, usage);
+    }
 
+//    GETTERS & SETTERS
+
+    public boolean isNomadic() {
+        return nomadic;
+    }
+
+    public Land getLocation() {
+        return location;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public Population getPopulation() {
+        return population;
+    }
+
+    public boolean isStable() {
+        return stable;
+    }
+
+    public Set<String> getCustoms() {
+        return customs;
+    }
+
+    public List<LandType> getAffinity() {
+        return affinity;
+    }
+
+    public Set<String> getAllies() {
+        return allies;
+    }
+
+    public Set<String> getEnemies() {
+        return enemies;
+    }
+
+    public LeaderType getLeader() {
+        return leader;
+    }
+
+    public Set<Deity> getReligion() {
+        return religion;
+    }
+
+    public Specialty getSpeciality() {
+        return speciality;
+    }
+
+    public List<String> getAncestors() {
+        return ancestors;
+    }
+
+    public boolean isAggressive() {
+        return aggressive;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public int getInitiative() {
+        return initiative;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setNomadic(boolean nomadic) {
+        this.nomadic = nomadic;
+    }
+
+    public void setSize(int size) {
+        this.size = Math.max(0, size);
+    }
+
+    public void setStable(boolean stable) {
+        this.stable = stable;
+    }
+
+    public void setLeader(LeaderType leader) {
+        this.leader = leader;
+    }
+
+    public void setSpeciality(Specialty speciality) {
+        this.speciality = speciality;
+    }
+
+    public void setAggressive(boolean aggressive) {
+        this.aggressive = aggressive;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public void setInitiative(int initiative) {
+        this.initiative = initiative;
+    }
 }

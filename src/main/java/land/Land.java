@@ -6,10 +6,7 @@ import nation.Civilization;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultEdge;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Land {
     private String name;
@@ -21,6 +18,8 @@ public class Land {
     private int space;
 
     private Graph<Land, DefaultEdge> graph;
+
+//    CONSTRUCTION
 
     public Land(Graph<Land, DefaultEdge> graph, String name, LandType type, int baseResources, int space) {
         this.name = name;
@@ -47,6 +46,7 @@ public class Land {
         return this.name.hashCode();
     }
 
+//    GETTERS & SETTERS
 
     public String getName() {
         return name;
@@ -100,45 +100,76 @@ public class Land {
         return neighbors;
     }
 
-    public Map<String, LandType> getNeighbourTypes() {
-        // TODO
-        return new HashMap<>();
-    }
-
     public Map<Land, LandType> getNeighbourLandTypeMap() {
-        // TODO
+        Map<Land, LandType> result = new HashMap<>();
+        ArrayList<Land> neighbours = getDirectNeighbors();
+        for (Land n : neighbours) {
+            result.put(n, n.getType());
+        }
         return new HashMap<>();
     }
 
     public int getOccupiedResources() {
-        // TODO
-        return 0;
+        int used = 0;
+        for (Civilization civ : this.civs) {
+            used += civ.getResourceUse();
+        }
+        return used;
     }
+
+
+//    PASS TIME
+
+    public List<Record> passTime() {
+        List<Record> records = new ArrayList<>();
+        Collections.shuffle(this.civs);
+        for (Civilization civ : this.civs) {
+            records.add(civ.passTime());
+        }
+        return records;
+    }
+
+//    CIVILIZATIONS
 
     public List<Civilization> getCivs() {
         return this.civs;
     }
 
     public void addCiv(Civilization civ) {
-        // TODO
-    }
-
-    public void remCiv(String civName) {
-        // TODO
+        this.civs.add(civ);
     }
 
     public void remCiv(Civilization civ) {
         remCiv(civ.getName());
     }
 
-    public List<Record> passTime() {
-        // TODO
-        return new ArrayList<>();
+    public void remCiv(String civName) {
+        for (int i = 0; i < civs.size(); i++) {
+            if (!civs.get(i).getName().equals(civName)) {
+                civs.remove(i);
+                return;
+            }
+        }
     }
 
     public void cleanCivs() {
-        // TODO remove destroyed civs
+        for (int i = 0; i < civs.size(); i++) {
+            if (!civs.get(i).isActive()) {
+                civs.remove(i);
+                i--;
+            }
+        }
     }
 
+    public void propagateNameChange(String priorName, List<String> newNames) {
+        for (Land land : this.graph.vertexSet()) {
+            land.changeCivName(priorName, newNames);
+        }
+    }
 
+    private void changeCivName(String priorName, List<String> newNames) {
+        for (Civilization civ : this.civs) {
+            civ.doNameChange(priorName, newNames);
+        }
+    }
 }
