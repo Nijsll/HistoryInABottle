@@ -35,7 +35,7 @@ public class Population {
         double size = this.getSize();
         Map<String, Double> percentages = new HashMap<>();
         for (String race : this.people.keySet()) {
-            percentages.put(race, ((double) this.people.get(race)) / size);
+            percentages.put(race, ((double) this.people.get(race)) / (size*100));
         }
         return percentages;
     }
@@ -89,7 +89,11 @@ public class Population {
     }
 
     public void growRaceBy(String race, int n) {
-        this.people.put(race, (this.people.get(race) + (n * 100)));
+        if (this.people.containsKey(race)) {
+            this.people.put(race, (this.people.get(race) + (n * 100)));
+        } else {
+            this.people.put(race, n);
+        }
     }
 
     public void shrinkRaceBy(String race, int n) {

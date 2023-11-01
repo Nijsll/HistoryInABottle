@@ -5,8 +5,10 @@ import history.Record;
 import nation.Civilization;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultEdge;
+import util.Util;
 
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Land {
     private String name;
@@ -17,6 +19,8 @@ public class Land {
     private int baseResources;
     private int space;
 
+    private Set<String> ruins;
+
     private Graph<Land, DefaultEdge> graph;
 
 //    CONSTRUCTION
@@ -24,11 +28,12 @@ public class Land {
     public Land(Graph<Land, DefaultEdge> graph, String name, LandType type, int baseResources, int space) {
         this.name = name;
         this.type = type;
-        this.civs = new ArrayList<>();
+        this.civs = new CopyOnWriteArrayList<>();
         this.baseResources = baseResources;
         this.resources = baseResources;
         this.space = space;
         this.graph = graph;
+        this.ruins = new HashSet<>();
     }
 
     @Override
@@ -106,17 +111,29 @@ public class Land {
         for (Land n : neighbours) {
             result.put(n, n.getType());
         }
-        return new HashMap<>();
+        return result;
     }
 
-    public int getOccupiedResources() {
+//    RESOURCES
+
+    public int getOccupiedResources(boolean countNomads) {
         int used = 0;
         for (Civilization civ : this.civs) {
-            used += civ.getResourceUse();
+            if (countNomads || !civ.isNomadic()) {
+                used += civ.getResourceUse();
+            }
         }
         return used;
     }
 
+    public int getAvailableResources(boolean countNomads) {
+        int occ = getOccupiedResources(countNomads);
+        return this.resources - occ;
+    }
+
+    public boolean isAbundant() {
+        return getAvailableResources(true) > (Math.floorDiv(this.resources, 2));
+    }
 
 //    PASS TIME
 
@@ -126,7 +143,25 @@ public class Land {
         for (Civilization civ : this.civs) {
             records.add(civ.passTime());
         }
+        cleanCivs();
+
+        if (getAvailableResources(true) < 0) {
+            this.resources--;
+        }
+
         return records;
+    }
+
+    public List<Record> migration() {
+        List<Record> recs = new ArrayList<>();
+        for (Civilization civ : this.civs) {
+            recs.add(civ.tryMigrate());
+        }
+        return recs;
+    }
+
+    public void endTurn() {
+        this.civs.forEach(Civilization::newTurn);
     }
 
 //    CIVILIZATIONS
@@ -136,7 +171,9 @@ public class Land {
     }
 
     public void addCiv(Civilization civ) {
+        civ.setLocation(this);
         this.civs.add(civ);
+
     }
 
     public void remCiv(Civilization civ) {
@@ -145,7 +182,7 @@ public class Land {
 
     public void remCiv(String civName) {
         for (int i = 0; i < civs.size(); i++) {
-            if (!civs.get(i).getName().equals(civName)) {
+            if (civs.get(i).getName().equals(civName)) {
                 civs.remove(i);
                 return;
             }
@@ -167,9 +204,23 @@ public class Land {
         }
     }
 
+    public void addToRuins(String civName) {
+        this.ruins.add(civName);
+    }
+
     private void changeCivName(String priorName, List<String> newNames) {
         for (Civilization civ : this.civs) {
             civ.doNameChange(priorName, newNames);
         }
+    }
+
+//    TO STRING
+    @Override
+    public String toString() {
+        return String.format("%-25s | %-5s | %-5s | %-5s | %-5s", this.name, this.civs.size(), this.resources, this.getAvailableResources(true), Util.getBoolString(isAbundant()));
+    }
+
+    public static String getHeaderString() {
+        return String.format("%-25s | %-5s | %-5s | %-5s | %-5s", "Name", "#Civs", "Res", "Ava", "Ab");
     }
 }

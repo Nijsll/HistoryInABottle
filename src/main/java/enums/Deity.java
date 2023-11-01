@@ -12,6 +12,7 @@ public enum Deity {
     Ioun,
     Kord,
     Lolth,
+    Maglubiyet,
     Moradin,
     Mystra,
     Pelor,

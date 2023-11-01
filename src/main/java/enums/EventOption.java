@@ -21,5 +21,6 @@ public enum EventOption {
     Destabilize,
     Splinter,
     InitiativeImpact,
-    LandResourcesImpact
+    LandResourcesImpact,
+    Destroy, // Val: int = 0..1 (% chance of destruction)
 }

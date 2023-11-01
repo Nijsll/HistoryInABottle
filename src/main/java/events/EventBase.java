@@ -5,6 +5,7 @@ import enums.EventOption;
 import enums.Interaction;
 import nation.Civilization;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class EventBase {
@@ -20,6 +21,10 @@ public class EventBase {
     public EventBase(String name, int weight) {
         this.eventName = name;
         this.weight = weight;
+
+        this.options = new HashMap<>();
+        this.options2ndCiv = new HashMap<>();
+        this.twoCivs = false;
     }
 
     public int getWeight() {
@@ -76,5 +81,10 @@ public class EventBase {
         } else {
             return new Event(this.eventName, civ1, this.options, this.interactionType, civ2, this.options2ndCiv);
         }
+    }
+
+    @Override
+    public String toString() {
+        return this.eventName;
     }
 }

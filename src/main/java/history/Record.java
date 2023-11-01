@@ -28,7 +28,7 @@ public class Record {
     }
 
     public boolean isValid() {
-        return (this.eventName != null && !this.eventName.equals("Error") && !this.eventName.equals("Null"));
+        return (this.eventName != null && !this.eventName.equals("Error") && !this.eventName.equals("Null") && this.happenings.size() > 0);
     }
 
     public void addEvent(String description) {

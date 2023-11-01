@@ -14,6 +14,18 @@ public class EventHandler {
     private static EventHandler instance = null;
     private static final Map<String, List<EventBase>> events = new HashMap<>();
 
+    public static void init() {
+        System.out.print("Initializing Event Handler...");
+        if (instance == null) {
+            synchronized (EventHandler.class) {
+                if (instance == null) {
+                    instance = new EventHandler();
+                }
+            }
+        }
+        System.out.print(" Done\n");
+    }
+
     public static EventBase getEvent(Civilization civ) {
         if (instance == null) {
             synchronized (EventHandler.class) {
@@ -23,13 +35,18 @@ public class EventHandler {
             }
         }
 
-        List<EventBase> possible = new ArrayList<>();
         // TODO get correct events
-        possible.addAll(events.get("All"));
+        List<EventBase> possible = new ArrayList<>(events.get("All"));
         if (civ.isNomadic()) {
             possible.addAll(events.get("Nomadic"));
         } else {
             possible.addAll(events.get("Settled"));
+        }
+
+        if (civ.isStable()) {
+            possible.addAll(events.get("Stable"));
+        } else {
+            possible.addAll(events.get("Unstable"));
         }
 
         // Get weight
@@ -54,43 +71,63 @@ public class EventHandler {
         events.put("All", new ArrayList<>());
         events.put("Nomadic", new ArrayList<>());
         events.put("Settled", new ArrayList<>());
+        events.put("Stable", new ArrayList<>());
+        events.put("Unstable", new ArrayList<>());
 
 
         try {
 //        EVENTS ALL
             String cat = "All";
-            List<EventBase> eventBases = new ArrayList<>();
-            EventBase base = new EventBase("grow", 10);
+            EventBase base = new EventBase("grow", 8);
             base.setOption(EventOption.SizeImpact, 1);
-            eventBases.add(base);
+            events.get(cat).add(base);
 
             base = new EventBase("shrink", 5);
             base.setOption(EventOption.SizeImpact, -1);
-            eventBases.add(base);
+            events.get(cat).add(base);
 
-            this.events.put(cat, eventBases);
+//            base = new EventBase("die", 15);
+//            base.setOption(EventOption.Destroy, 0.9);
+//            events.get(cat).add(base);
+
 
 //        NOMADIC
             cat = "Nomadic";
-            eventBases = new ArrayList<>();
-            base = new EventBase("settle", 5);
+            base = new EventBase("settle", 25);
             base.setOption(EventOption.Settle, true);
-            eventBases.add(base);
+            events.get(cat).add(base);
 
-            this.events.put(cat, eventBases);
 
 //        SETTLED
             cat = "Settled";
-            eventBases = new ArrayList<>();
             base = new EventBase("gainAffinity", 5);
             base.setOption(EventOption.GainAffinity, true);
-            eventBases.add(base);
+            events.get(cat).add(base);
 
             base = new EventBase("exile", 1);
             base.setOption(EventOption.Exile, true);
-            eventBases.add(base);
+            events.get(cat).add(base);
 
-            this.events.put(cat, eventBases);
+            base = new EventBase("splinter", 1);
+            base.setOption(EventOption.Splinter, true);
+            events.get(cat).add(base);
+
+//        STABLE
+            cat = "Stable";
+            base = new EventBase("prosper", 5);
+            base.setOption(EventOption.SizeImpact, 2);
+            events.get(cat).add(base);
+
+//        UNSTABLE
+            cat = "Unstable";
+            base = new EventBase("collapse", 10);
+            base.setOption(EventOption.Destroy, 1.0);
+            events.get(cat).add(base);
+
+            base = new EventBase("stablilize", 10);
+            base.setOption(EventOption.Stabilize, true);
+
+
         } catch (ConstructEventException e) {
             throw new RuntimeException(e);
         }

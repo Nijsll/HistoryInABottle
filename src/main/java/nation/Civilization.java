@@ -8,7 +8,7 @@ import events.EventBase;
 import events.EventHandler;
 import history.Record;
 import land.Land;
-import util.UtilFunctions;
+import util.Util;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -36,10 +36,14 @@ public class Civilization {
     private boolean active;
     private int initiative;
 
+    private boolean hasMigrated;
+    private boolean hasActed;
+
     public Civilization(Land loc, String name, LeaderType leader, Deity deity, String startRace, boolean aggressive) {
         this.name = name;
         this.customs = new HashSet<>();
         this.location = loc;
+        loc.addCiv(this);
         this.size = 1;
         this.nomadic = false;
         this.affinity = new ArrayList<>();
@@ -58,6 +62,9 @@ public class Civilization {
 
         this.active = true;
         this.initiative = 1;
+
+        this.hasMigrated = false;
+        this.hasActed = false;
     }
 
     public Civilization(Civilization civ) {
@@ -65,6 +72,7 @@ public class Civilization {
 
         this.nomadic = civ.nomadic;
         this.location = civ.location;
+        this.location.addCiv(this);
 
         this.size = civ.size;
         this.population = new Population(civ.population);
@@ -88,6 +96,9 @@ public class Civilization {
         this.aggressive = civ.aggressive;
         this.active = civ.active;
         this.initiative = civ.initiative;
+
+        this.hasMigrated = civ.hasMigrated;
+        this.hasActed = civ.hasActed;
     }
 
 //    INFO SELF
@@ -99,46 +110,56 @@ public class Civilization {
 //    CHANGE SELF
     public void destroy() {
         this.active = false;
+        this.location.addToRuins(this.name);
         removeFromOthers();
     }
 
-    public Civilization split() {
+    public Civilization[] split() {
 //        Create 2 "halves"
         Civilization civ1 = new Civilization(this);
         civ1.population.setSize(population.getSize()/2);
-        civ1.size = civ1.size/2;
+        civ1.size = Math.floorDiv(civ1.size,2);
         Civilization civ2 = new Civilization(civ1);
 
 //        Setup 1
         civ1.name = this.name + "-1";
         civ1.ancestors.add(civ1.name);
-        this.location.addCiv(civ1);
 
 //        Setup 2
         civ2.name = this.name + "-2";
         civ2.ancestors.add(civ2.name);
-        this.location.addCiv(civ2);
 
 //        End
         changeName(new ArrayList<>(Arrays.asList(civ1.getName(), civ2.getName())));
         destroy();
-        return civ1;
+
+        return new Civilization[]{civ1, civ2};
     }
 
     public void migrate() {
         // Get Destination
         Land destination = getDestination();
+        this.location.remCiv(this);
         destination.addCiv(this);
-        this.location.remCiv(this.name);
-        this.location = destination;
+        this.hasMigrated = true;
     }
+
+    public Civilization[] splinter() {
+        Civilization[] civs = split();
+        civs[1].setNomadic(true);
+//        civs[1].migrate();
+        civs[1].hasActed = true;
+        return civs;
+    }
+
+
 
     public void grow(int amount) {
         this.size += amount;
     }
 
     public void shrink(int amount) {
-        this.size = Math.max(0, this.size-amount);
+        this.size = Math.max(1, this.size-amount);
     }
 
     private void changeName(List<String> newNames) {
@@ -246,10 +267,14 @@ public class Civilization {
 //    EVENTS
 
     public Record passTime() {
-        Record rec = new Record(this.name + " - " + (new Date()));
+        Util.verboseLog("Pass time for " + this.name);
+        Record rec = new Record(this.name + " - " + (new Date()).getTime());
         if (!this.active) {
             rec.addEvent(this.name + " was destroyed.");
             return rec;
+        }
+        if (hasActed) {
+            return getNullEvent();
         }
 
 //        EVENT
@@ -283,41 +308,83 @@ public class Civilization {
             return rec;
         }
 
-//        Nomadic
-        if (this.nomadic) {
-            if (this.size > 1) {
-                this.size = 1;
-                this.population.setSize(1);
+//        Land sustainability
+        if (this.location.getAvailableResources(false) < 0) {
+            if (this.size > 1  && this.population.getSize() > 1 && Util.chance(0.5)) {
+                Civilization[] result = splinter();
+                rec.addEvent(this.name + " splintered into " + result[0].getName() + " and " + result[1].getName() + "; ");
+            } else {
+                shrink(1);
             }
-            migrate();
+
+        }
+
+//        Land Impact
+        if (!this.nomadic && this.location.isAbundant()) {
+            this.size++;
+            rec.addEvent("Time: "+ this.location.getName() + " was abundant, " + this.name + " grew to size " + this.size + "; ");
         }
 
 //        Population control
-        if (this.size > this.population.getSize()) {
+        int popSize = this.population.getSize();
+        if (this.size > popSize) {
             this.population.growBy(1);
-            rec.addEvent("Population grew.");
-        } else if (this.size < this.population.getSize()) {
+            rec.addEvent("Time: Population grew; ");
+        } else if (this.size < popSize) {
             this.population.shrinkBy(1);
-            rec.addEvent("Population shrunk.");
+            rec.addEvent("Time: Population shrunk to " +this.population.getSize() + "; "); // + ". civSize-"+this.size+"&popSize-"+popSize+"&to-"+);
             // Maybe make civ non-stable in this case
+            this.stable = false;
+            rec.addEvent("Became unstable; ");
         }
 
 //        Destruction
         if (this.size == 0) {
             this.destroy();
-            rec.addEvent(this.name + " was destroyed since their size dropped to 0.");
+            rec.addEvent("Time: " + this.name + " was destroyed since their size dropped to 0; ");
         } else if (this.population.getSize() == 0) {
             this.destroy();
-            rec.addEvent(this.name + " was destroyed since their population dropped to 0.");
+            rec.addEvent("Time: " + this.name + " was destroyed since their population dropped to 0; ");
         }
 
+
+//        Nomadic
+//        if (this.nomadic && this.active) {
+//            if (this.size > 1) {
+//                this.size = 1;
+//                this.population.setSize(1);
+//            }
+//            String locPre = location.getName();
+//            migrate();
+//            rec.addEvent("Time: migrated from " + locPre + " to " + this.location.getName() + "; ");
+//        }
+
+        this.hasActed = true;
+
         return rec;
+    }
+
+    public Record tryMigrate() {
+        if (this.nomadic && this.active && !this.hasMigrated) {
+            if (this.size > 1) {
+                this.size = 1;
+                this.population.setSize(1);
+            }
+            String locPre = location.getName();
+            migrate();
+            Record rec = new Record("Migration " + this.name);
+            rec.addEvent("Migrated from " + locPre + " to " + this.location.getName() + "; ");
+            return rec;
+        } else {
+            return getNullEvent();
+        }
     }
 
     public boolean rollInitiative() {
         double n = Math.random();
         if (n < (1.0/this.initiative)) {
             // EVENT HAPPENS
+            Util.verboseLog("Event happens");
             this.initiative = Math.min(this.initiative + 4, 10);
             return true;
         } else {
@@ -334,19 +401,44 @@ public class Civilization {
         return r;
     }
 
+    public void newTurn() {
+        this.hasActed = false;
+        this.hasMigrated = false;
+    }
+
 //    HELPER FUNCTIONS
     private Land getDestination() {
         Map<Land, LandType> lands = this.location.getNeighbourLandTypeMap();
         Set<Land> possible = new HashSet<>();
+        // Based on Affinity
         for (Land land : lands.keySet()) {
-            if (this.affinity.contains(lands.get(land)) || (land.getSpace() > land.getOccupiedResources())) {
+            if (this.affinity.contains(lands.get(land)) || (land.getSpace() > land.getOccupiedResources(true))) {
                 possible.add(land);
             }
         }
-        if (possible.size() == 0) {
-            possible.addAll(lands.keySet());
+        if (possible.size() > 0 && Util.chance(0.5)) {
+            return Util.getRandomFromSet(possible);
         }
-        return UtilFunctions.getRandomFromSet(possible);
+
+        // Based on Abundance
+        for (Land land : lands.keySet()) {
+            if (land.isAbundant()) possible.add(land);
+        }
+        if (possible.size() > 0 && Util.chance(0.5)) {
+            return Util.getRandomFromSet(possible);
+        }
+
+        // Based on available Resources
+        for (Land land : lands.keySet()) {
+            if (land.getAvailableResources(true) > 1) possible.add(land);
+        }
+        if (possible.size() > 0) {
+            return Util.getRandomFromSet(possible);
+        }
+
+        // Random
+        possible.addAll(lands.keySet());
+        return Util.getRandomFromSet(possible);
     }
 
     public int getResourceUse() {
@@ -460,5 +552,35 @@ public class Civilization {
 
     public void setInitiative(int initiative) {
         this.initiative = initiative;
+    }
+
+    public void setLocation(Land land) { this.location = land;}
+
+//    TO STRING
+
+    @Override
+    public String toString() {
+        return String.format("%-30s | %-25s | %-5s | %-5s | %-5s | %-5s | %-10s", this.name, this.location.getName(), this.size, this.population.getSize()*100, Util.getBoolString(this.stable), Util.getBoolString(this.nomadic), getAffinityString());
+    }
+
+    public static String getHeaderString() {
+        return String.format("%-30s | %-25s | %-5s | %-5s | %-5s | %-5s | %-10s", "Name", "Location", "Size", "Pop", "Stb", "Nom", "Affinities");
+    }
+
+    private String getAffinityString() {
+        if (this.affinity.size() == 0) return "[]";
+        Map<LandType, Integer> map = new HashMap<>();
+        for (LandType lt : this.affinity) {
+            if (map.containsKey(lt)) {
+                map.put(lt, map.get(lt)+1);
+            } else {
+                map.put(lt, 1);
+            }
+        }
+        String s = "[";
+        for (LandType lt : map.keySet()) {
+            s += (lt.name().substring(0,1)) + map.get(lt) + ",";
+        }
+        return s.substring(0, s.length()-1) + "]";
     }
 }

@@ -1,11 +1,10 @@
 package util;
 
 import java.util.Iterator;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class UtilFunctions {
+public class Util {
     public static <T> T getRandomFromSet(Set<T> set) {
         if (set.isEmpty()) {
             throw new IllegalArgumentException("The input Set is empty.");
@@ -19,5 +18,17 @@ public class UtilFunctions {
         }
 
         return iterator.next();
+    }
+
+    public static void verboseLog(String s) {
+        if (Global.verbose) System.out.println(s);
+    }
+
+    public static boolean chance(double v) {
+        return (v > ThreadLocalRandom.current().nextDouble(1));
+    }
+
+    public static String getBoolString(boolean b) {
+        return b ? " Y " : " N ";
     }
 }

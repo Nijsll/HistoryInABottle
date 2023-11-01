@@ -1,6 +1,10 @@
 package history;
 
+import land.Land;
 import land.LandMap;
+import nation.Civilization;
+import util.Global;
+import util.IO;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,6 +29,7 @@ public class History {
         for (int y = 0; y < decades; y++) {
             doDecade();
             year += TIMESEGMENTLENGHT;
+            if (Global.quit) break;
         }
         finish();
     }
@@ -33,19 +38,52 @@ public class History {
         List<Record> records = map.passTime();
         records.removeIf(r -> !r.isValid());
         records.forEach(r -> r.setYear(year));
-        if (records.size() > 0) this.records.put(year, records);
+        System.out.println("\nIn the year's of " + year);
+        if (records.size() > 0) {
+            this.records.put(year, records);
+            for (Record rec : this.records.get(year)) {
+                System.out.println(rec);
+                if (Global.speed <= 0) IO.getEnter();
+            }
+        } else {
+            System.out.println("Nothing happened.");
+        }
+
+        printLands();
+        printCivs();
+
+    }
+
+    private void printLands() {
+        System.out.println("\nLands:");
+        System.out.println(Land.getHeaderString());
+        for (Land land : this.map.getAllOccupiedLands()) {
+            System.out.println(land);
+        }
+
+    }
+
+    private void printCivs() {
+        System.out.println("\nCivilizations:");
+        System.out.println(Civilization.getHeaderString());
+        for (Civilization civ : this.map.getAllCivs()) {
+            System.out.println(civ);
+        }
+        if (Global.speed <= 1) IO.getEnter();
     }
 
     private void finish() {
         List<Integer> decades = this.records.keySet().stream().toList();
-        Collections.sort(decades);
-        for (int year : decades) {
-            System.out.println("In the " + year + "'s:");
-            for (Record rec : this.records.get(year)) {
-                System.out.println(rec);
+//        Collections.sort(decades);
+        if (Global.verbose) {
+            for (int year : decades) {
+                System.out.println("In the " + year + "'s:");
+                for (Record rec : this.records.get(year)) {
+                    System.out.println(rec);
+                }
             }
         }
-        System.out.println("End\n");
+        System.out.println("\nEnd\n");
     }
 
 }

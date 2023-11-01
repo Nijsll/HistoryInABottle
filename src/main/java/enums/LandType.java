@@ -6,6 +6,6 @@ public enum LandType {
     Coast,
     Forest,
     Desert,
-    Cold,
+    Tundra,
     Swamp
 }
